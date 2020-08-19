@@ -1,0 +1,909 @@
+---
+title: "MSDS696 – Data Science Practicum II - Ecoli"
+author: "Eric Mwangi"
+date: "7/20/2020"
+output: 
+  pdf_document: 
+    latex_engine: xelatex
+  html_document: default
+  word_document: default
+---
+
+
+## Load all the required libraries:
+
+Load the libraries after installing the packages.
+The following commands will install these packages if they are not already installed:
+```{r setup, include=FALSE}
+chooseCRANmirror(graphics=FALSE, ind=1)
+knitr::opts_chunk$set(echo = TRUE)
+
+if(!require(e1071)){install.packages("e1071")}   
+library(e1071) #Used to train SVM, tune function to obtain the minimum #error value, and perform cross validation.
+
+if(!require(class)){install.packages("class")}   
+library(class) #used to train KNN.
+
+if(!require(caret)){install.packages("caret")}   
+library(caret) # Contains many functions in regard
+#to the training process for regression and classification problems #including ConfusionMatrix() and k-fold cross validation. 
+
+if(!require(mice)){install.packages("mice")} 
+
+install.packages("mice", repos = "https://cloud.r-project.org")
+library(mice) #To impute missing data
+
+if(!require(VIM)){install.packages("VIM")}  
+library(VIM) #To view graphic of missing data
+
+if(!require(dplyr)){install.packages("dplyr")}  
+library(dplyr) #To plot Fancy tree plot
+
+if(!require(ROCR)){install.packages("ROCR")}  
+library(ROCR) # To plot ROC curve that illustrates the performance of
+#a binary classifier system.
+
+if(!require(pROC)){install.packages("pROC")}  
+library(pROC) # To generate a ROC curve of each fitted model.
+
+if(!require(kernlab)){install.packages("kernlab")} 
+library(kernlab) # To to generate an ROC curve of each fitted model.
+
+if(!require(randomForest)){install.packages("randomForest")}  
+library(randomForest) #used to build the Random Forest model.
+
+if(!require(rpart)){install.packages("rpart")}  
+library(rpart) #used for classification
+
+if(!require(rpart.plot)){install.packages("rpart.plot")}  
+library(rpart.plot) #used for viewing the classification graph
+
+if(!require(tidyverse)){install.packages("tidyverse")}  
+library(tidyverse) #Contains packages: ggplot2, dplyr, tidyr, readr, purrr, and tibble, which are used to clean, process, model, and visualize data. 
+
+if(!require(gmodels)){install.packages("gmodels")}  
+library(gmodels) #CrossTable()
+
+if(!require(ggplot2)){install.packages("ggplot2")}  
+library(ggplot2) #used for graphics - data visualization
+
+if(!require(colorspace)){install.packages("colorspace")}  
+library(colorspace) #Dependency package for ggplot2.
+
+if(!require(corrplot)){install.packages("corrplot")}  
+library(corrplot) #used used to plot the graph of the correlation matrix.
+
+if(!require(stringr)){install.packages("stringr")}
+library(stringr) #Consistent Wrappers for Common String Operations
+
+if(!require(PerformanceAnalyticss)){install.packages("PerformanceAnalytics")}  
+library(PerformanceAnalytics) #used for graphics - data visualization and correlation matrix.
+
+if(!require(ipred)){install.packages("ipred")}
+library(ipred) #Used for the erroreset function from the ipred package to #perform a cross-validation on each classification method to estimate test #errors in order to compare the different classifiers. 
+
+if(!require(plotly)){install.packages("plotly")}  
+library(plotly) #To plot rpart decision trees
+
+if(!require(rattle)){install.packages("rattle")}  
+library(rattle) #To plot Fancy tree plot
+
+if(!require(RStoolbox)){install.packages("RStoolbox")} 
+library(RStoolbox) #  Fortify method for classes from the raster package.
+
+if(!require(qqplotr)){install.packages("qqplotr")}  
+library(qqplotr) #To produce quantile-quantile plots
+
+if(!require(funModeling)){install.packages("funModeling")}  
+library(funModeling) #For EDA - profiling_num() function.
+
+if(!require(psych)){install.packages("psych")}  
+library(psych) #For EDA - use describe() function.
+
+if(!require(Hmisc)){install.packages("Hmisc")}  
+library(Hmisc) #For EDA
+
+if(!require(DataExplorer)){install.packages("DataExplorer")}  
+library(DataExplorer) #For EDA
+
+```
+Reference:
+Horton, P., & Nakai, K. (1996). A Probabilistic Classification System for         Predicting the Cellular Localization Sites of Proteins. ISMB-96             Proceedings, 109 – 115. Retrieved from                                      https://www.aaai.org/Papers/ISMB/1996/ISMB96-012.pdf
+
+##Getting the data.
+
+Read the data (ecoli.data) from the local directory.
+
+Create a data frame from the downloaded file.
+Attach the column header titles. 
+```{r}
+# Load the specified data set, here "ecoli".
+ecoli_df <- as_tibble(read.table("D:/Regis Docs/MSDS696 – Data Science Practicum II/Data/ecoli.data", header = FALSE, strip.white=T, sep = '', stringsAsFactors=FALSE, fill=FALSE,
+    col.names = c("seqn", "mcg", "gvh", "lip", "chg", "aac", "alm1", "alm2", "cld"))) 
+```
+
+Look at the data (structure of the imported data):
+
+Display the first few rows of the data frame. 
+```{r}
+str(ecoli_df)
+```
+
+
+```{r}
+glimpse(ecoli_df)
+```
+
+Summary of the data.
+```{r}
+summary(ecoli_df)
+```
+
+
+
+```{r}
+data_prof <- funModeling::profiling_num(ecoli_df)
+
+data_prof
+```
+
+
+```{r}
+print.data.frame(head(ecoli_df))
+```
+
+View a section of the data frame.
+```{r}
+library(dplyr)
+ecoli_df %>% slice_head(n = 5)
+print.data.frame(head(ecoli_df))
+```
+
+
+```{r}
+print.data.frame(tail(ecoli_df))
+```
+
+
+```{r}
+library(dplyr)
+ecoli_df %>% slice_tail(n = 5)
+```
+
+
+```{r}
+view(ecoli_df)
+```
+
+Dimensions of the data frame.
+```{r}
+dim(ecoli_df)
+```
+
+Length of the data frame.
+```{r}
+length(ecoli_df)
+```
+
+```{r}
+nrow(ecoli_df)
+```
+
+
+```{r}
+ncol(ecoli_df)
+```
+
+
+```{r}
+lapply(ecoli_df, summary)
+```
+
+
+```{r}
+describe(ecoli_df)
+```
+
+
+```{r}
+status(ecoli_df)
+```
+
+Frequencies of the data Frame.
+```{r}
+#freq(ecoli_df)
+```
+
+Missing attribute values.
+```{r}
+plot_missing(ecoli_df)
+```
+
+
+
+```{r}
+introduce(ecoli_df)
+```
+
+
+
+
+
+```{r}
+plot_intro(ecoli_df)
+```
+
+
+
+
+```{r}
+plot_num(ecoli_df)
+```
+
+
+
+Histogram of the variables:
+```{r}
+# Set a graphical parameter within the plotting function 
+par(mfrow=c(2, 4))  # divide graph area in 2 rows and 4 columns
+hist(ecoli_df$mcg, col.lab="red")
+hist(ecoli_df$gvh, col.lab="red")
+hist(ecoli_df$lip, col.lab="red")
+hist(ecoli_df$chg, col.lab="red")
+hist(ecoli_df$aac, col.lab="red")
+hist(ecoli_df$alm1, col.lab="red")
+hist(ecoli_df$alm2, col.lab="red")
+```
+
+
+```{r}
+ecoli_df %>%
+  ggplot(aes(x=mcg)) +
+         geom_histogram(bins=20) 
+ecoli_df %>%
+  ggplot(aes(x=gvh)) +
+      geom_histogram(bins=20)
+ecoli_df %>%
+  ggplot(aes(x=lip)) +
+      geom_histogram(bins=20)
+ecoli_df %>%
+  ggplot(aes(x=chg)) +
+      geom_histogram(bins=20)
+ecoli_df %>%
+  ggplot(aes(x=aac)) +
+      geom_histogram(bins=20)
+ecoli_df %>%
+  ggplot(aes(x=alm1)) +
+      geom_histogram(bins=20)
+ecoli_df %>%
+  ggplot(aes(x=alm2)) +
+      geom_histogram(bins=20)
+```
+
+
+
+
+```{r}
+ecoli_df %>%
+  ggplot(aes(x=mcg)) +
+         geom_bar() +
+         scale_x_binned() 
+ecoli_df %>%
+  ggplot(aes(x=gvh)) +
+         geom_bar() +
+         scale_x_binned()
+ecoli_df %>%
+  ggplot(aes(x=lip)) +
+         geom_bar() +
+         scale_x_binned()
+ecoli_df %>%
+  ggplot(aes(x=chg)) +
+         geom_bar() +
+         scale_x_binned()
+ecoli_df %>%
+  ggplot(aes(x=aac)) +
+         geom_bar() +
+         scale_x_binned()
+ecoli_df %>%
+  ggplot(aes(x=alm1)) +
+         geom_bar() +
+         scale_x_binned()
+ecoli_df %>%
+  ggplot(aes(x=alm2)) +
+         geom_bar() +
+         scale_x_binned()
+```
+
+
+Shape of Data:
+
+Box and whisker plots.
+```{r}
+qplot(cld, mcg, data=ecoli_df, geom="boxplot", fill=cld)
+qplot(cld, gvh, data=ecoli_df, geom="boxplot", fill=cld)
+qplot(cld, lip, data=ecoli_df, geom="boxplot", fill=cld)
+qplot(cld, chg, data=ecoli_df, geom="boxplot", fill=cld)
+qplot(cld, aac, data=ecoli_df, geom="boxplot", fill=cld)
+qplot(cld, alm1, data=ecoli_df, geom="boxplot", fill=cld)
+qplot(cld, alm2, data=ecoli_df, geom="boxplot", fill=cld)
+```
+
+Overlapping density plot:
+Comparing distributions between the different categories of proteins and Class Distributions.
+```{r}
+qplot(mcg, data=ecoli_df, geom="density", alpha=I(.7), fill=cld)
+qplot(gvh, data=ecoli_df, geom="density", alpha=I(.7), fill=cld)
+qplot(lip, data=ecoli_df, geom="density", alpha=I(.7), fill=cld)
+qplot(chg, data=ecoli_df, geom="density", alpha=I(.7), fill=cld)
+qplot(aac, data=ecoli_df, geom="density", alpha=I(.7), fill=cld)
+qplot(alm1, data=ecoli_df, geom="density", alpha=I(.7), fill=cld)
+qplot(alm2, data=ecoli_df, geom="density", alpha=I(.7), fill=cld)
+```
+
+Plotting a Vectors:
+Print the elements of the vectors (proteins) according to their index.
+```{r}
+plot(ecoli_df$mcg) # Plot proteins for each observation.
+plot(sort(ecoli_df$mcg)) # Plot values against their ranks.
+
+plot(ecoli_df$gvh)
+plot(sort(ecoli_df$gvh))
+
+plot(ecoli_df$lip)
+plot(sort(ecoli_df$lip))
+
+plot(ecoli_df$chg)
+plot(sort(ecoli_df$chg))
+
+plot(ecoli_df$aac) 
+plot(sort(ecoli_df$aac))
+
+plot(ecoli_df$alm1)
+plot(sort(ecoli_df$alm1))
+
+plot(ecoli_df$alm2)
+plot(sort(ecoli_df$alm2))
+```
+
+quantile-quantile (Q-Q) and probability-probability (P-P) points, lines, and confidence bands.
+```{r}
+gg_mcg <- ggplot(data = ecoli_df, mapping = aes(sample = mcg, color = cld, fill = cld)) +
+    stat_qq_band(alpha=0.5) +
+    stat_qq_line() +
+    stat_qq_point() +
+    facet_wrap(~ cld) +
+    labs(x = "protein score", y = "localization-class dist.")
+gg_mcg
+```
+
+
+```{r}
+gg_gvh <- ggplot(data = ecoli_df, mapping = aes(sample = gvh, color = cld, fill = cld)) +
+    stat_qq_band(alpha=0.5) +
+    stat_qq_line() +
+    stat_qq_point() +
+    facet_wrap(~ cld) +
+    labs(x = "protein score", y = "localization-class dist.")
+gg_gvh
+```
+
+
+```{r}
+gg_lip <- ggplot(data = ecoli_df, mapping = aes(sample = lip, color = cld, fill = cld)) +
+    stat_qq_band(alpha=0.5) +
+    stat_qq_line() +
+    stat_qq_point() +
+    facet_wrap(~ cld) +
+    labs(x = "protein score", y = "localization-class dist.")
+gg_lip
+```
+
+```{r}
+gg_chg <- ggplot(data = ecoli_df, mapping = aes(sample = chg, color = cld, fill = cld)) +
+    stat_qq_band(alpha=0.5) +
+    stat_qq_line() +
+    stat_qq_point() +
+    facet_wrap(~ cld) +
+    labs(x = "protein score", y = "localization-class dist.")
+gg_chg
+```
+
+```{r}
+gg_aac <- ggplot(data = ecoli_df, mapping = aes(sample = aac, color = cld, fill = cld)) +
+    stat_qq_band(alpha=0.5) +
+    stat_qq_line() +
+    stat_qq_point() +
+    facet_wrap(~ cld) +
+    labs(x = "protein score", y = "localization-class dist.")
+gg_aac
+```
+
+```{r}
+gg_alm1 <- ggplot(data = ecoli_df, mapping = aes(sample = alm1, color = cld, fill = cld)) +
+    stat_qq_band(alpha=0.5) +
+    stat_qq_line() +
+    stat_qq_point() +
+    facet_wrap(~ cld) +
+    labs(x = "protein score", y = "localization-class dist.")
+gg_alm1
+```
+
+```{r}
+gg_alm2 <- ggplot(data = ecoli_df, mapping = aes(sample = alm2, color = cld, fill = cld)) +
+    stat_qq_band(alpha=0.5) +
+    stat_qq_line() +
+    stat_qq_point() +
+    facet_wrap(~ cld) +
+    labs(x = "protein score", y = "localization-class dist.")
+gg_alm2
+```
+
+Correlation matrix using pairs plots:
+A quick way of finding out which variables in a data set are correlated with each other.
+```{r}
+#library("PerformanceAnalytics")
+ecoli_dfc1 <- ecoli_df[, c(2,3,4,5,6,7,8)] # Concatenate the columns we want to display.
+chart.Correlation(ecoli_dfc1, histogram=TRUE, pch=19) # plot the graph
+```
+
+Attempt analysis of these raw numbers. 
+```{r}
+corrmatrix <- cor(ecoli_dfc1)
+corrplot(corrmatrix, method = 'number')
+```
+We see that the variables alm1 and alm2 are highly correlated but the other variables are not highly correlated.
+
+```{r}
+getAnywhere(correlation)
+```
+
+## Including Plots
+
+```{r}
+ecoli_dfc1 <- ecoli_df[, c(2,3,4,5,6,7,8)] # Concatenate the columns we want to display.
+lava:::correlation(ecoli_dfc1, histogram=TRUE, pch=19) # plot the graph
+```
+
+#Reshaping the data frame:
+
+Drop the id feature altogether. As it is located in the first column, we can exclude it by making a copy of the wbcd data frame without column 1:
+
+Classification models require the data be numeric and for SVM, the column does not add value.
+```{r}
+ecoli_df <- ecoli_df[-1]
+```
+
+# convert "cld" field as the class factor.
+The Class Distribution ("cld") is the outcome we hope to classify. This feature indicates the protein classification. 
+
+Many R machine learning classifiers require that the target feature is coded as a factor, so we will need to recode the cld variable.
+```{r}
+ecoli_df$cld <- as.factor(ecoli_df$cld)
+ecoli_df
+```
+
+```{r}
+str(ecoli_df)
+#summary(ecoli_df)
+```
+
+#SVM - Standardization:
+
+Scale each feature to a fairly small interval.
+
+We Apply normalization to rescale the features to a standard range of values.
+
+We use the Min-Max Normalization:
+```{r}
+normalize <- function(x) {
+return((x - min(x)) / (max(x) - min(x)))
+}
+```
+
+After executing this code, our normalize() function can be applied to every column in the ecoli data frame using the lapply() function.
+
+```{r}
+ecoli_norm <- as.data.frame(lapply(ecoli_df[1:7], normalize))
+```
+
+To confirm that the normalization worked, we can see that the minimum and
+maximum strength are now 0 and 1, respectively. To confirm that the transformation was applied correctly, let's look at the  summary statistics:
+```{r}
+summary(ecoli_norm)
+```
+Each of the columns now have values that range from 0 to 1.
+The function appears to be working correctly. Despite the fact that the values in the vectors varied, after normalization, they all appear exactly the same.
+
+```{r}
+str(ecoli_norm)
+```
+
+Checking the variables, we see that lip and chg are constants. The "lip" column is 0.48 except for 10 datasets that are 1.00. The "chg" variable is 0.5 except for 1 dataset that is 1.0. When normalized, the two columns are 0. Since they don't add any meaningful information, we drop the two columns.
+```{r}
+drop <- c('lip', 'chg')
+ecoli_norm <- ecoli_norm[,!(names(ecoli_norm) %in% drop)]        
+```
+
+View the normalized data frame.
+```{r}
+view(ecoli_norm) 
+```
+
+The eighth column “cld” was dropped from this data frame. We add it back by using the following code:
+
+Add back "cld" (class distribiution) column:
+```{r}
+ecoli_norm$cld <- ecoli_df$cld
+```
+
+Verify the first few rows of the data frame:
+```{r}
+print.data.frame(head(ecoli_norm))
+```
+
+Verify the last few rows of the data frame:
+```{r}
+print.data.frame(tail(ecoli_norm))
+```
+
+View the structure of the data frame:
+```{r}
+str(ecoli_norm)
+```
+
+#Data preparation – creating training and test datasets.
+
+Split into training and testing, ratio of 70:30.
+```{r}
+set.seed(101)
+train_index <- sample(1:nrow(ecoli_norm), 0.7 * nrow(ecoli_norm))
+ecolinorm_train <- ecoli_norm[train_index, ]
+ecolinorm_test <- ecoli_norm[-train_index, ]
+```
+
+View the dimensions of the split data sets:
+```{r}
+dim(ecolinorm_train)
+dim(ecolinorm_test)
+```
+
+```{r}
+str(ecolinorm_train)
+```
+
+```{r}
+ecolinormNew_train <- tibble::enframe(name = NULL, ecolinorm_train$cld)
+ggplot(ecolinormNew_train, aes(x = ecolinorm_train$cld, y = ecolinorm_train$cld, col = ecolinorm_train$cld)) + geom_point()
+```
+
+#Training a svm LINEAR model on the data:
+
+#svm linear model:
+```{r}
+ecoli.linmodel <- svm(cld ~ ., data = ecolinorm_train, kernel='linear', cost=1, scale=FALSE)
+```
+
+```{r}
+summary(ecoli.linmodel)
+```
+
+#Evaluating svm LINEAR model performance:
+
+```{r}
+str(ecolinorm_test$cld)
+length(ecolinorm_test$cld)
+```
+
+
+```{r}
+str(ecolinorm_test)
+```
+
+#PREDICT svm LINEAR MODEL: 
+#svm linear model predict.
+```{r}
+ecoli.linmodelpred <- predict(ecoli.linmodel, ecolinorm_test,  type="C-classification")  
+
+```
+
+Add Class = to avoid error in confusion matrix:
+Error in table(data, reference, dnn = dnn, ...) : all arguments must have the same length.
+```{r}
+summary(ecoli.linmodelpred)
+```
+
+Use the table function to generate a classification table with the
+prediction result and labels of the testing data set.
+```{r}
+ecoli.linmodeltable <- table(ecoli.linmodelpred, ecolinorm_test$cld)
+
+ecoli.linmodeltable
+```
+
+
+```{r}
+classAgreement(ecoli.linmodeltable)
+```
+
+Confusion Matrix of the linear predicted model.
+```{r}
+confusionMatrix(ecoli.linmodelpred, ecolinorm_test$cld)
+```
+
+
+```{r}
+str(ecoli.linmodelpred)
+length(ecoli.linmodelpred)
+```
+
+#(Load the e1071 package - already done in the beginnig)
+
+#Improving model performance.
+We use the radial kernel (similar to Gaussian RBF kernel:
+
+#Training a svm RADIAL model on the data:
+Train the support vector machine using the svm function with trainset (ecolinorm_train) as the input dataset, and use cld as the classification category.
+
+#svm RADIAL MODEL: 
+#svm radial model (with a cost of 1).
+```{r}
+ecoli.radmodel <- svm(cld ~., data = ecolinorm_train, kernel="radial", cost=1, gamma = 1/ncol(ecolinorm_train))
+```
+
+
+```{r}
+length(ecoli.radmodel)
+length(ecolinorm_train)
+```
+
+Obtain overall information about the built model with summary.
+```{r}
+summary(ecoli.radmodel)
+```
+
+#Evaluating svm RADIAL model performance:
+
+#PREDICT svm RADIAL MODEL: 
+#svm radial model predict.
+Predict the label of the testing dataset based on the fitted SVM and attributes of the testing dataset.
+```{r}
+#aba.radmodelpred <- predict(aba.radmodel, abadataNew_test[, -1],
+                            
+ecoli.radmodelpred <- predict(ecoli.radmodel, ecolinorm_test, type="C-classification")
+```
+
+
+```{r}
+summary(ecoli.radmodelpred)
+```
+
+Use the table function to generate a classification table with the
+prediction result and labels of the testing data set.
+```{r}
+ecoli.radmodeltable <- table(ecoli.radmodelpred, ecolinorm_test$cld)
+
+ecoli.radmodeltable
+```
+
+Use classAgreement to calculate coefficients compared to the
+classification agreement.
+```{r}
+classAgreement(ecoli.radmodeltable)
+```
+
+Use confusionMatrix to measure the prediction performance based
+on the classification table.
+```{r}
+confusionMatrix(ecoli.radmodelpred, ecolinorm_test$cld)
+```
+
+```{r}
+length(ecolinorm_test$cld)
+length(ecoli.radmodelpred)
+```
+
+```{r}
+ggplot(NULL, aes(x = ecolinorm_test$cld, y = ecoli.radmodelpred, 
+                 col = factor(ecolinorm_test$cld))) + geom_point()
+```
+
+#k-fold Cross Validation for svm model:
+
+#svm TUNED MODEL: 
+We use tune.svm to perform the 10-fold cross-validation and obtain the optimum classification model.
+```{r}
+tuned_svm <- tune.svm(cld~., data = ecolinorm_train, gamma = 10^(-6:-1), cost = 10^(1:2), tunecontrol=tune.control(cross=10))
+
+
+#t_svm <- tune.svm(cld~., data = ecolinorm_train, gamma = 10^(-5:-1), cost #= 10^(-3:1))
+
+#t_svm <- tune.svm(cld~., data = ecolinorm_train, gamma = 10^(-5:-1), cost #= 10^(-3:1), scale = FALSE, tunecontrol=tune.control(cross=10))
+
+#best.svm(cld~., data = ecolinorm_train, tunecontrol = #tune.control(cross=10))
+```
+
+Summary of the tunned SVM model.
+```{r}
+summary(tuned_svm)
+```
+
+Structure of the tuned model (gives more statistics):
+```{r}
+str(tuned_svm)
+```
+The best tuned model has a gamma of 0.001 and a cost of 10.
+
+Select the best model from the tuned model.
+```{r}
+tuned_svmfit <- tuned_svm$best.model 
+```
+
+Summary of the best tuned model.
+```{r}
+summary(tuned_svmfit)
+```
+
+#TUNED svm RADIAL MODEL: 
+create the tuned radial model.
+
+After retrieving the best performance parameter from tuning the result, we retrain the support vector machine with the best performance parameter:
+```{r}
+tuned_radmodel <- svm(cld ~ ., data = ecolinorm_train, gamma = tuned_svm$best.parameters$gamma, cost = tuned_svm$best.parameters$cost)
+```
+
+Summary of the retrained tuned model.
+```{r}
+summary(tuned_radmodel)
+```
+
+#Create the tuned predicted model:
+We use the predict function to predict labels based on the fitted SVM.
+```{r}
+tuned_svmpred <- predict(tuned_radmodel, ecolinorm_test[, !names(ecolinorm_test) %in% c("cld")])
+```
+
+Summary information of the tuned model:
+Do a summary of the tuned predicted model.
+```{r}
+summary(tuned_svmpred)
+```
+
+Create a table for the tuned predicted model and display the table.
+```{r}
+tuned_svmpredtable <- table(tuned_svmpred, ecolinorm_test$cld)
+
+tuned_svmpredtable
+```
+
+Generate a class agreement for the tunned predicted table.
+```{r}
+classAgreement(tuned_svmpredtable)
+```
+
+The kappa statistic adjusts the accuracy relative to the expected agreement. The kappa of 0.78 indicates that we have a "good agreement" in predicting the protein class classification and the actual values.  
+
+Generate a confusion Matrix.
+```{r}
+confusionMatrix(tuned_svmpredtable)
+
+#confusionMatrix(tuned_svmpred, ecolinorm_test$cld)
+```
+The model has an accuracy of 84.2% with a confidence interval of 95%.
+
+Generate a cross table confusion Matrix if you want to view more statistics.
+```{r}
+CrossTable(x = ecolinorm_test$cld, y = tuned_svmpred, prop.chisq=FALSE)
+```
+
+class distribution in the test dataset:
+```{r}
+agreement <- tuned_svmpred == ecolinorm_test$cld
+
+table(agreement)
+```
+Using the table() function, we see that the classifier correctly identified the protein class distribution in 85 out of the 101 test records.
+
+Agreement as a %:
+```{r}
+prop.table(table(agreement))
+```
+In percentage terms, the accuracy is about 84 percent.
+
+
+#The random forest approach:
+We use the random forest classification method for predicting the protein localization in ecoli cells into the 8 levels (class distributions) based on their sites. We’ll use the randomForest() library to classify.
+
+First install and load the randomForest package (already done).
+
+#Fit the random forest classifier with a training set:
+Separate our data into testing and training sets. We take the clean data (normalized) set we used for svm. The set.seed() function ensures that the result can be replicated.
+Split into training and testing, ratio of 70:30.
+```{r}
+set.seed(123)
+samp <- sample(nrow(ecoli_norm), 0.7 * nrow(ecoli_norm))
+ecoli_trainsetrf <- ecoli_norm[samp, ]
+ecoli_testsetrf <- ecoli_norm[-samp, ]
+```
+This will place 70% of the observations in the original dataset into train and the remaining 30% of the observations into test.
+
+#Build our model. 
+Fit the random forest classifier with a training set:
+
+We use the random forest method to train a classification model. We set importance = T, which will ensure that the importance of the predictor is assessed.
+```{r}
+ecoli_modelrf <- randomForest(cld ~ ., data = ecoli_trainsetrf, importance = T, keep.forest = TRUE)
+
+ecoli_modelrf
+```
+
+Let’s take a look at the model.
+We can see that 500 trees (the default) were built, and the model randomly sampled 2 predictors at each split. It also shows a matrix containing prediction vs actual, as well as classification error for each class.
+
+We can test the accuracy as follows:
+```{r}
+(114 + 55 + 0 + 0 + 16 + 14 + 0 + 32) / nrow(ecoli_trainsetrf)
+```
+
+
+Use the plot function to plot the mean square error of the forest object:
+```{r}
+plot(ecoli_modelrf)
+```
+
+Flat line - even if run more trees, won't make a difference in the model.
+
+Examine the importance of each attribute within the fitted classifier:
+```{r}
+#importance(ecoli_modelrf) 
+```
+
+Examine the importance of each attribute within the fitted classifier:
+```{r}
+varImp(ecoli_modelrf)
+```
+
+Use the varImpPlot function to obtain the plot of variable importance using either mean decrease accuracy or mean decrease gini.
+```{r}
+varImpPlot(ecoli_modelrf)
+```
+
+Use the margin function to calculate the margins of the forest object. 
+Plot the margin cumulative distribution:
+```{r}
+ecoli_marginsrf <- margin(ecoli_modelrf, ecoli_trainsetrf)
+
+plot(ecoli_marginsrf)
+```
+
+Use a histogram to visualize the margin margins of the forest object to the proportion of correctly classified observations:
+```{r}
+hist(ecoli_marginsrf, main="Margins of Random Forest for ecoli dataset")
+```
+
+
+Use boxplot to visualize the margins of the forest object to the proportion of correctly classified observations by class:
+```{r}
+boxplot(ecoli_marginsrf ~ ecoli_trainsetrf$cld, main="Margins of the forest object for ecoli dataset by class")
+```
+
+
+Let’s test the model on the test data set.
+```{r}
+ecoli_predictrf <- predict(ecoli_modelrf, ecoli_testsetrf)
+```
+
+Obtain the classification table:
+```{r}
+table(ecoli_predictrf, ecoli_testsetrf$cld)
+```
+
+
+We can test the accuracy as follows:
+```{r}
+(40 + 19 + 0 + 0 + 6 + 5 + 0 + 17) / nrow(ecoli_testsetrf)
+```
+
+We achieved ~86.1% accuracy with a very simple model. 
+
+
+
