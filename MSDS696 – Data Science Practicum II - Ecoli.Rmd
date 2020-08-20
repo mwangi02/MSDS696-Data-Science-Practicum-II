@@ -713,13 +713,6 @@ ggplot(NULL, aes(x = ecolinorm_test$cld, y = ecoli.radmodelpred,
 We use tune.svm to perform the 10-fold cross-validation and obtain the optimum classification model.
 ```{r}
 tuned_svm <- tune.svm(cld~., data = ecolinorm_train, gamma = 10^(-6:-1), cost = 10^(1:2), tunecontrol=tune.control(cross=10))
-
-
-#t_svm <- tune.svm(cld~., data = ecolinorm_train, gamma = 10^(-5:-1), cost #= 10^(-3:1))
-
-#t_svm <- tune.svm(cld~., data = ecolinorm_train, gamma = 10^(-5:-1), cost #= 10^(-3:1), scale = FALSE, tunecontrol=tune.control(cross=10))
-
-#best.svm(cld~., data = ecolinorm_train, tunecontrol = #tune.control(cross=10))
 ```
 
 Summary of the tunned SVM model.
@@ -785,8 +778,6 @@ The kappa statistic adjusts the accuracy relative to the expected agreement. The
 Generate a confusion Matrix.
 ```{r}
 confusionMatrix(tuned_svmpredtable)
-
-#confusionMatrix(tuned_svmpred, ecolinorm_test$cld)
 ```
 The model has an accuracy of 84.2% with a confidence interval of 95%.
 
